@@ -571,7 +571,10 @@ document.addEventListener('touchend', () => {
 // =================================================================
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./service-worker.js').then((reg) => {
+    // updateViaCache:'none' = SW ファイル自体は常に最新を取りに行く (HTTPキャッシュ無効)
+    navigator.serviceWorker.register('./service-worker.js', { updateViaCache: 'none' }).then((reg) => {
+      // 起動時に明示的に更新チェック
+      reg.update().catch(() => {});
       // 新しい SW がインストールされた瞬間を検知
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
