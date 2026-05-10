@@ -9,7 +9,15 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#000000">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon.svg">
+<!-- iOS ホーム画面アイコン (端末解像度別) -->
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icon-167.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icon-152.png">
+<link rel="apple-touch-icon" sizes="120x120" href="icon-120.png">
+<link rel="apple-touch-icon" sizes="76x76"   href="icon-76.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <title>SimAnt — iPad</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -229,6 +237,42 @@ canvas {
   z-index: 100;
 }
 
+/* 新バージョン通知バナー (Service Worker 更新時) */
+#update-banner {
+  position: fixed;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1f2d3a;
+  color: #c9d1d9;
+  border: 1px solid #58a6ff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  z-index: 200;
+  box-shadow: 0 4px 16px rgba(0,0,0,.5);
+}
+#update-banner.show { display: flex; }
+#update-banner button {
+  background: #58a6ff;
+  color: #000;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 12px;
+}
+#update-banner .later {
+  background: transparent;
+  color: #888;
+  border: 1px solid #444;
+  font-weight: normal;
+}
+
 /* 縦持ち時はやや幅を絞る (タッチパッドは画面下部のままで OK) */
 @media (orientation: portrait) {
   canvas {
@@ -245,6 +289,7 @@ canvas {
     <h1>◆ SimAnt</h1>
     <span id="rom-name">— ROM 未読み込み —</span>
     <label class="h-btn" for="rom-input">📂 ROM</label>
+    <!-- iOS Safari は accept 属性が厳しめで .sfc を除外することがあるため、フィルタなしにする -->
     <input type="file" id="rom-input">
     <button class="h-btn" id="reset-btn">↺</button>
     <span id="fps">-- FPS</span>
@@ -285,15 +330,21 @@ canvas {
   </div>
 
   <div id="save-badge">💾 自動保存しました</div>
+
+  <div id="update-banner">
+    <span>新しいバージョンがあります</span>
+    <button id="update-now">更新</button>
+    <button id="update-later" class="later">あとで</button>
+  </div>
 </div>
 
-<script src="cartridge.js"></script>
-<script src="bus.js"></script>
-<script src="cpu65816.js"></script>
-<script src="spc700.js"></script>
-<script src="ppu.js"></script>
-<script src="disasm.js"></script>
-<script src="emulator.js"></script>
+<script src="src/cartridge.js"></script>
+<script src="src/bus.js"></script>
+<script src="src/cpu65816.js"></script>
+<script src="src/spc700.js"></script>
+<script src="src/ppu.js"></script>
+<script src="src/disasm.js"></script>
+<script src="src/emulator.js"></script>
 <script>
 'use strict';
 const emu = new Emulator();
@@ -448,6 +499,52 @@ document.addEventListener('touchend', () => {
     emu.audioCtx.resume();
   }
 }, { once: false });
+
+// =================================================================
+//  Service Worker 登録 (オフライン対応)
+//
+//  - 初回アクセス時に静的アセットをキャッシュ
+//  - 2回目以降は Wi-Fi なしでも起動できる
+//  - 新バージョンが見つかったら下部にバナーを出して、
+//    ユーザーが「更新」をタップした瞬間にリロード
+// =================================================================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js').then((reg) => {
+      // 新しい SW がインストールされた瞬間を検知
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // 既存の SW が動いている＝これは更新
+            showUpdateBanner(newWorker);
+          }
+        });
+      });
+    }).catch(err => console.warn('SW register failed:', err));
+
+    // 更新が反映された瞬間にリロード
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+  });
+}
+
+function showUpdateBanner(newWorker) {
+  const banner = $('update-banner');
+  banner.classList.add('show');
+  $('update-now').onclick = () => {
+    newWorker.postMessage('SKIP_WAITING');
+    banner.classList.remove('show');
+  };
+  $('update-later').onclick = () => {
+    banner.classList.remove('show');
+  };
+}
 </script>
 </body>
 </html>
