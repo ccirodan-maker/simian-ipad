@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0d4429"/>
+  <!-- 体節 (アリ) -->
+  <ellipse cx="256" cy="160" rx="46" ry="50" fill="#56d364"/>
+  <ellipse cx="256" cy="248" rx="38" ry="44" fill="#56d364"/>
+  <ellipse cx="256" cy="336" rx="60" ry="58" fill="#56d364"/>
+  <!-- 触角 -->
+  <path d="M232 124 Q200 92 188 60" stroke="#56d364" stroke-width="8" stroke-linecap="round" fill="none"/>
+  <path d="M280 124 Q312 92 324 60" stroke="#56d364" stroke-width="8" stroke-linecap="round" fill="none"/>
+  <circle cx="188" cy="60" r="6" fill="#56d364"/>
+  <circle cx="324" cy="60" r="6" fill="#56d364"/>
+  <!-- 脚 (3対) -->
+  <path d="M232 248 L160 220" stroke="#56d364" stroke-width="6" stroke-linecap="round"/>
+  <path d="M280 248 L352 220" stroke="#56d364" stroke-width="6" stroke-linecap="round"/>
+  <path d="M232 240 L150 280" stroke="#56d364" stroke-width="6" stroke-linecap="round"/>
+  <path d="M280 240 L362 280" stroke="#56d364" stroke-width="6" stroke-linecap="round"/>
+  <path d="M232 256 L160 320" stroke="#56d364" stroke-width="6" stroke-linecap="round"/>
+  <path d="M280 256 L352 320" stroke="#56d364" stroke-width="6" stroke-linecap="round"/>
+  <!-- 目 -->
+  <circle cx="240" cy="152" r="6" fill="#0d4429"/>
+  <circle cx="272" cy="152" r="6" fill="#0d4429"/>
+  <!-- ラベル -->
+  <text x="256" y="448" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="56" font-weight="bold" fill="#56d364">SimAnt</text>
+</svg>

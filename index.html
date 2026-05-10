@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SimAnt">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>SimAnt — iPad</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%;
+  background: #000;
+  color: #ddd;
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+}
+#root {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  height: 100vh;
+  height: 100svh;
+}
+
+/* ヘッダ */
+#header {
+  flex: 0 0 auto;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  background: #111;
+  border-bottom: 1px solid #222;
+  font-size: 12px;
+  padding-top: env(safe-area-inset-top);
+  height: calc(32px + env(safe-area-inset-top));
+}
+#header h1 { color: #58a6ff; font-size: 13px; letter-spacing: 1px; }
+#rom-name { color: #888; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#fps { color: #3fb950; min-width: 56px; text-align: right; font-variant-numeric: tabular-nums; }
+.h-btn {
+  background: #222;
+  color: #ddd;
+  border: 1px solid #333;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.h-btn:active { background: #1f6feb; }
+#rom-input { display: none; }
+
+/* ゲーム画面エリア (中央) */
+#screen-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  position: relative;
+  overflow: hidden;
+}
+#screen-wrap {
+  background: #000;
+  box-shadow: 0 0 24px rgba(88,166,255,.08);
+  border: 1px solid #1a1a1a;
+}
+canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  /* 利用可能領域に最大化、アスペクト比 256:224 を維持 */
+  height: min(calc(100dvh - 32px - 240px - env(safe-area-inset-top) - env(safe-area-inset-bottom)),
+              calc(100dvw - 24px));
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: 256 / 224;
+}
+#splash {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 14px;
+  color: #888;
+}
+#splash strong { color: #58a6ff; font-size: 18px; }
+
+/* タッチパッド (下部) */
+#touch-pad {
+  flex: 0 0 auto;
+  height: 240px;
+  position: relative;
+  background: linear-gradient(to bottom, #0d0d0d, #060606);
+  border-top: 1px solid #222;
+  padding-bottom: env(safe-area-inset-bottom);
+  height: calc(240px + env(safe-area-inset-bottom));
+}
+
+/* L / R ショルダー */
+.sb {
+  position: absolute;
+  top: 12px;
+  width: 110px;
+  height: 36px;
+  background: #1a1a1a;
+  border: 2px solid #333;
+  color: #ccc;
+  font-size: 14px;
+  font-weight: bold;
+  border-radius: 8px;
+  letter-spacing: 2px;
+}
+.sb-l { left: 18px; }
+.sb-r { right: 18px; }
+
+/* D-pad (左下) */
+#dpad {
+  position: absolute;
+  left: 28px;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  width: 168px;
+  height: 168px;
+}
+.dp {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  background: #1a1a1a;
+  border: 2px solid #333;
+  color: #ccc;
+  font-size: 22px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dp-up    { top: 0;    left: 56px;  border-radius: 12px 12px 0 0; }
+.dp-left  { top: 56px; left: 0;     border-radius: 12px 0 0 12px; }
+.dp-right { top: 56px; left: 112px; border-radius: 0 12px 12px 0; }
+.dp-down  { top: 112px; left: 56px; border-radius: 0 0 12px 12px; }
+
+/* フェイスボタン (右下、ダイヤモンド配置) */
+#face {
+  position: absolute;
+  right: 28px;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  width: 200px;
+  height: 200px;
+}
+.fb {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #1a1a1a;
+  border: 2px solid #444;
+  color: #fff;
+  font-size: 22px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fb-y { top: 68px; left: 0;    border-color: #4dd0e1; color: #4dd0e1; } /* 左 */
+.fb-x { top: 0;    left: 68px; border-color: #4fc3f7; color: #4fc3f7; } /* 上 */
+.fb-a { top: 68px; left: 136px; border-color: #f06292; color: #f06292; } /* 右 */
+.fb-b { top: 136px; left: 68px; border-color: #ffb74d; color: #ffb74d; } /* 下 */
+
+/* SELECT / START (中央下) */
+#meta {
+  position: absolute;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 14px;
+}
+.mb {
+  min-width: 80px;
+  height: 32px;
+  padding: 0 14px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #aaa;
+  font-size: 11px;
+  letter-spacing: 1px;
+  border-radius: 16px;
+}
+
+/* 押下中のスタイル */
+.btn-pressed {
+  background: #1f6feb !important;
+  border-color: #58a6ff !important;
+  color: #fff !important;
+  box-shadow: 0 0 12px rgba(88,166,255,.5) inset;
+}
+
+/* 自動保存通知 */
+#save-badge {
+  position: fixed;
+  top: calc(40px + env(safe-area-inset-top));
+  right: 12px;
+  background: #0d4429;
+  color: #56d364;
+  border: 1px solid #3fb950;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity .25s;
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* 縦持ち時はやや幅を絞る (タッチパッドは画面下部のままで OK) */
+@media (orientation: portrait) {
+  canvas {
+    height: min(calc(100dvh - 32px - 240px - env(safe-area-inset-top) - env(safe-area-inset-bottom)),
+                calc(100dvw - 24px));
+  }
+}
+</style>
+</head>
+<body>
+<div id="root">
+
+  <div id="header">
+    <h1>◆ SimAnt</h1>
+    <span id="rom-name">— ROM 未読み込み —</span>
+    <label class="h-btn" for="rom-input">📂 ROM</label>
+    <input type="file" id="rom-input" accept=".sfc,.smc,.rom,.bin">
+    <button class="h-btn" id="reset-btn">↺</button>
+    <span id="fps">-- FPS</span>
+  </div>
+
+  <div id="screen-area">
+    <div id="splash">
+      <strong>SimAnt iPad</strong>
+      <span>右上の「📂 ROM」から SimAnt の .sfc を選んでください</span>
+    </div>
+    <div id="screen-wrap" style="display:none">
+      <canvas id="screen" width="256" height="224"></canvas>
+    </div>
+  </div>
+
+  <div id="touch-pad">
+    <button class="sb sb-l"     data-btn="L">L</button>
+    <button class="sb sb-r"     data-btn="R">R</button>
+
+    <div id="dpad">
+      <button class="dp dp-up"    data-btn="UP">▲</button>
+      <button class="dp dp-left"  data-btn="LEFT">◀</button>
+      <button class="dp dp-right" data-btn="RIGHT">▶</button>
+      <button class="dp dp-down"  data-btn="DOWN">▼</button>
+    </div>
+
+    <div id="face">
+      <button class="fb fb-y" data-btn="Y">Y</button>
+      <button class="fb fb-x" data-btn="X">X</button>
+      <button class="fb fb-a" data-btn="A">A</button>
+      <button class="fb fb-b" data-btn="B">B</button>
+    </div>
+
+    <div id="meta">
+      <button class="mb" data-btn="SELECT">SELECT</button>
+      <button class="mb" data-btn="START">START</button>
+    </div>
+  </div>
+
+  <div id="save-badge">💾 自動保存しました</div>
+</div>
+
+<script src="src/cartridge.js"></script>
+<script src="src/bus.js"></script>
+<script src="src/cpu65816.js"></script>
+<script src="src/spc700.js"></script>
+<script src="src/ppu.js"></script>
+<script src="src/disasm.js"></script>
+<script src="src/emulator.js"></script>
+<script>
+'use strict';
+const emu = new Emulator();
+const canvas = document.getElementById('screen');
+const $ = id => document.getElementById(id);
+
+// ---- ROM 読み込み ----
+$('rom-input').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const buf = await f.arrayBuffer();
+    emu.loadROM(buf);
+    emu.setCanvas(canvas);
+    $('rom-name').textContent = emu.cart.title.trim();
+    $('splash').style.display = 'none';
+    $('screen-wrap').style.display = '';
+    // 直近のROMを localStorage に保存しておけば次回自動復元できるが、
+    // 容量(1MB)が localStorage の安全圏を超える可能性があるためここでは省略。
+    emu.start();
+  } catch(err) {
+    alert('ROM 読み込みエラー: ' + err.message);
+  }
+});
+
+$('reset-btn').addEventListener('click', () => {
+  if (!emu.cart) return;
+  emu.stop(); emu.reset(); emu.setCanvas(canvas); emu.start();
+});
+
+// ---- FPS 表示 ----
+emu.onFrame = (fps) => { $('fps').textContent = fps + ' FPS'; };
+
+// ---- 自動保存通知 ----
+const badge = $('save-badge');
+let badgeTimer = null;
+emu.onAutoSave = () => {
+  badge.style.opacity = '1';
+  if (badgeTimer) clearTimeout(badgeTimer);
+  badgeTimer = setTimeout(() => { badge.style.opacity = '0'; }, 1500);
+};
+
+// ---- ページが閉じられる前に強制フラッシュ ----
+window.addEventListener('beforeunload', () => emu.flushSRAM());
+window.addEventListener('pagehide',     () => emu.flushSRAM());
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') emu.flushSRAM();
+});
+
+// =================================================================
+//  仮想タッチパッド
+//
+//  - 1本指あたり 1ボタンの押下を tracking
+//  - touchmove で指を別ボタンに移すと自動で切り替え (D-pad のスライド対応)
+//  - 押下中は .btn-pressed クラスで視覚フィードバック
+//  - エミュレータ側に _touchJoy フィールドを足し、キーボード/ゲームパッドと
+//    OR 合成して bus.joy1raw を更新する
+// =================================================================
+const TOUCH_BIT = {
+  UP: 0x0800, DOWN: 0x0400, LEFT: 0x0200, RIGHT: 0x0100,
+  A:  0x0080, B:    0x8000, X:    0x0040, Y:     0x4000,
+  L:  0x0020, R:    0x0010,
+  SELECT: 0x2000, START: 0x1000
+};
+
+emu._touchJoy = 0;
+const _origSync = emu._syncJoyToBus.bind(emu);
+emu._syncJoyToBus = function() {
+  if (this.bus) {
+    this.bus.joy1raw = (this._joy1raw | this._gamepadJoy1 | this._touchJoy) & 0xFFFF;
+  }
+};
+
+const touchPad = $('touch-pad');
+const activeTouches = new Map();   // touch.identifier → { bit, element }
+
+function findButtonAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  if (!el) return null;
+  let cur = el;
+  while (cur && cur !== document.body) {
+    if (cur.dataset && cur.dataset.btn) return cur;
+    cur = cur.parentElement;
+  }
+  return null;
+}
+
+function recalcTouches() {
+  let joy = 0;
+  const pressed = new Set();
+  for (const info of activeTouches.values()) {
+    if (info.bit) joy |= info.bit;
+    if (info.element) pressed.add(info.element);
+  }
+  emu._touchJoy = joy;
+  emu._syncJoyToBus();
+  document.querySelectorAll('[data-btn]').forEach(el => {
+    el.classList.toggle('btn-pressed', pressed.has(el));
+  });
+}
+
+function handleTouchPoint(t, isStart) {
+  const btnEl = findButtonAt(t.clientX, t.clientY);
+  const bit   = btnEl ? TOUCH_BIT[btnEl.dataset.btn] : 0;
+  activeTouches.set(t.identifier, { bit, element: btnEl });
+}
+
+touchPad.addEventListener('touchstart', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) handleTouchPoint(t, true);
+  recalcTouches();
+}, { passive: false });
+
+touchPad.addEventListener('touchmove', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (activeTouches.has(t.identifier)) handleTouchPoint(t, false);
+  }
+  recalcTouches();
+}, { passive: false });
+
+const endTouch = e => {
+  for (const t of e.changedTouches) activeTouches.delete(t.identifier);
+  recalcTouches();
+};
+touchPad.addEventListener('touchend',    e => { e.preventDefault(); endTouch(e); }, { passive: false });
+touchPad.addEventListener('touchcancel', e => { e.preventDefault(); endTouch(e); }, { passive: false });
+
+// マウス対応 (デスクトップでの動作確認用、ipad 実機では不要)
+document.querySelectorAll('[data-btn]').forEach(el => {
+  const bit = TOUCH_BIT[el.dataset.btn];
+  if (!bit) return;
+  el.addEventListener('mousedown', () => {
+    emu._touchJoy |= bit; el.classList.add('btn-pressed'); emu._syncJoyToBus();
+  });
+  const release = () => {
+    emu._touchJoy &= ~bit; el.classList.remove('btn-pressed'); emu._syncJoyToBus();
+  };
+  el.addEventListener('mouseup',    release);
+  el.addEventListener('mouseleave', release);
+});
+
+// 二本指ピンチや長押しメニュー抑制
+document.addEventListener('gesturestart',  e => e.preventDefault());
+document.addEventListener('gesturechange', e => e.preventDefault());
+document.addEventListener('gestureend',    e => e.preventDefault());
+document.addEventListener('contextmenu',   e => e.preventDefault());
+
+// iOS Safari: Web Audio はユーザー操作で初めて開始できる。
+// ROM 選択ボタンが直接触れられるので問題ないが、念のため最初の touchend で resume。
+document.addEventListener('touchend', () => {
+  if (emu.audioCtx && emu.audioCtx.state === 'suspended') {
+    emu.audioCtx.resume();
+  }
+}, { once: false });
+</script>
+</body>
+</html>
