@@ -68,7 +68,8 @@ html, body {
   cursor: pointer;
 }
 .h-btn:active { background: #1f6feb; }
-/* 動的に生成する file input は JS 側で style 指定するため、ここには CSS を置かない */
+/* デスクトップ版と同じ古典パターン: label の中に隠した file input を入れる */
+#rom-input { display: none; }
 
 /* ゲーム画面エリア (中央) */
 #screen-area {
@@ -288,8 +289,8 @@ canvas {
   <div id="header">
     <h1>◆ SimAnt</h1>
     <span id="rom-name">— ROM 未読み込み —</span>
-    <!-- iOS PWA バグ対策: 静的 input ではなくクリック時に動的生成する -->
-    <button class="h-btn" id="rom-btn">📂 ROM</button>
+    <!-- デスクトップ版と同じ古典パターン: label 内に隠した input をネスト -->
+    <label class="h-btn">📂 ROM<input type="file" id="rom-input" accept=".sfc,.smc,.rom,.bin"></label>
     <button class="h-btn" id="reset-btn">↺</button>
     <span id="fps">-- FPS</span>
   </div>
@@ -382,10 +383,18 @@ function readFileAsArrayBuffer(file) {
   });
 }
 
-// iOS PWA バグ回避: ボタンが押された瞬間に <input type="file"> を新規生成し、
-// 即座に click() を呼ぶ。change ハンドラは生成と同時に attach するので
-// ユーザージェスチャの連鎖が切れず、change イベントが確実に発火する。
-async function handleRomFile(f) {
+// グローバルエラーキャプチャ — JS でエラーが起きたら画面で見えるようにする
+window.addEventListener('error', (e) => {
+  const msg = 'JS エラー: ' + (e.message || '?') + ' (' + (e.filename || '').split('/').pop() + ':' + (e.lineno || '?') + ')';
+  setSplash('<span style="color:#f85149">' + msg + '</span>');
+});
+window.addEventListener('unhandledrejection', (e) => {
+  setSplash('<span style="color:#f85149">非同期エラー: ' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '</span>');
+});
+
+// ROM 読み込み (デスクトップ版と同じ単純な change リスナー)
+$('rom-input').addEventListener('change', async (e) => {
+  const f = e.target.files && e.target.files[0];
   if (!f) {
     setSplash('ファイルが選択されませんでした。もう一度お試しください。');
     return;
@@ -403,47 +412,12 @@ async function handleRomFile(f) {
     $('splash').style.display = 'none';
     $('screen-wrap').style.display = '';
     emu.start();
-  } catch(err) {
-    setSplash('ROM 読み込みエラー: ' + (err && err.message ? err.message : err));
-    try { alert('ROM 読み込みエラー: ' + (err && err.message ? err.message : err)); } catch(_) {}
+  } catch (err) {
+    const m = err && err.message ? err.message : String(err);
+    setSplash('<span style="color:#f85149">ROM 読み込みエラー: ' + m + '</span>');
+    try { alert('ROM 読み込みエラー: ' + m); } catch (_) {}
   }
-}
-
-function openRomPicker() {
-  setSplash('ファイル選択画面を開いています...');
-
-  // 既存の動的 input が残っていたら掃除
-  const old = document.getElementById('dyn-rom-input');
-  if (old) old.parentNode.removeChild(old);
-
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.id = 'dyn-rom-input';
-  // iOS PWA で動作させるため、見えないが DOM 上は存在する
-  input.style.cssText = 'position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;';
-
-  let handled = false;
-  input.addEventListener('change', () => {
-    handled = true;
-    const f = input.files && input.files[0];
-    // input は不要になったので DOM から削除
-    if (input.parentNode) input.parentNode.removeChild(input);
-    handleRomFile(f);
-  });
-
-  document.body.appendChild(input);
-  input.click();
-
-  // 5秒後にも change が来ていなければヒントを出す (iOS 既知バグ用)
-  setTimeout(() => {
-    if (!handled) {
-      setSplash('ファイル選択が反映されないようです。<br>' +
-                '<small style="color:#888">もう一度「📂 ROM」をタップするか、ホームに戻ってアプリを起動し直してみてください。</small>');
-    }
-  }, 5000);
-}
-
-$('rom-btn').addEventListener('click', openRomPicker);
+});
 
 // iOS PWA モード判定 (ホーム画面から起動したか) — ヒント表示用
 const isStandalone = window.navigator.standalone === true ||
