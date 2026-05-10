@@ -68,7 +68,19 @@ html, body {
   cursor: pointer;
 }
 .h-btn:active { background: #1f6feb; }
-#rom-input { display: none; }
+/* iOS PWA モードでは display:none のファイル input が動作しないことがあるため、
+   "視覚的に隠すが DOM/レイアウト上は存在" させる。
+   pointer-events: none は付けない (label の for= 経由の click 伝播を阻害する可能性) */
+#rom-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  left: 0;
+  top: 0;
+}
 
 /* ゲーム画面エリア (中央) */
 #screen-area {
@@ -352,22 +364,71 @@ const canvas = document.getElementById('screen');
 const $ = id => document.getElementById(id);
 
 // ---- ROM 読み込み ----
+// iOS PWA モードでも確実に動くよう、進捗を画面に表示しつつ
+// arrayBuffer() が失敗したら FileReader にフォールバックする。
+function setSplash(msg) {
+  const sp = $('splash');
+  sp.innerHTML = '<strong>SimAnt iPad</strong><span>' + msg + '</span>';
+  sp.style.display = '';
+}
+
+function readFileAsArrayBuffer(file) {
+  return new Promise((resolve, reject) => {
+    // 1) まずモダン API
+    if (file.arrayBuffer) {
+      file.arrayBuffer()
+        .then(resolve)
+        .catch(() => {
+          // 失敗したら FileReader へフォールバック
+          const r = new FileReader();
+          r.onload  = () => resolve(r.result);
+          r.onerror = () => reject(r.error || new Error('FileReader 失敗'));
+          r.readAsArrayBuffer(file);
+        });
+    } else {
+      // 2) 古い環境用に最初から FileReader
+      const r = new FileReader();
+      r.onload  = () => resolve(r.result);
+      r.onerror = () => reject(r.error || new Error('FileReader 失敗'));
+      r.readAsArrayBuffer(file);
+    }
+  });
+}
+
 $('rom-input').addEventListener('change', async e => {
-  const f = e.target.files[0]; if (!f) return;
+  const f = e.target.files && e.target.files[0];
+  if (!f) {
+    setSplash('ファイルが選択されませんでした。もう一度お試しください。');
+    return;
+  }
+  setSplash('読み込み中: ' + f.name + ' (' + Math.round(f.size/1024) + ' KB)');
   try {
-    const buf = await f.arrayBuffer();
+    const buf = await readFileAsArrayBuffer(f);
+    if (!buf || buf.byteLength < 1024) {
+      throw new Error('ファイルが小さすぎます (' + (buf ? buf.byteLength : 0) + ' bytes)');
+    }
+    setSplash('ROM 解析中...');
     emu.loadROM(buf);
     emu.setCanvas(canvas);
     $('rom-name').textContent = emu.cart.title.trim();
     $('splash').style.display = 'none';
     $('screen-wrap').style.display = '';
-    // 直近のROMを localStorage に保存しておけば次回自動復元できるが、
-    // 容量(1MB)が localStorage の安全圏を超える可能性があるためここでは省略。
     emu.start();
   } catch(err) {
-    alert('ROM 読み込みエラー: ' + err.message);
+    setSplash('ROM 読み込みエラー: ' + (err && err.message ? err.message : err));
+    // PWA モードでは alert() が抑制されることがあるので画面表示を頼りにする
+    try { alert('ROM 読み込みエラー: ' + (err && err.message ? err.message : err)); } catch(_) {}
   }
 });
+
+// iOS PWA モード判定 (ホーム画面から起動したか) — ヒント表示用
+const isStandalone = window.navigator.standalone === true ||
+                     window.matchMedia('(display-mode: standalone)').matches;
+if (isStandalone) {
+  // 必要に応じて PWA 専用ガイドをスプラッシュに出す
+  setSplash('右上の「📂 ROM」から SimAnt の .sfc を選んでください<br>' +
+            '<small style="color:#666">(iCloud Drive のファイルは「ファイル」アプリで一度ダウンロードしてから選択)</small>');
+}
 
 $('reset-btn').addEventListener('click', () => {
   if (!emu.cart) return;
