@@ -4,7 +4,7 @@
 //  バージョンを更新したら CACHE_VERSION を上げる。古いキャッシュは
 //  activate イベントで掃除される。
 // =============================================================
-const CACHE_VERSION = 'simant-ipad-v1';
+const CACHE_VERSION = 'simant-ipad-v2';
 const ASSETS = [
   './',
   './index.html',
