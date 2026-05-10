@@ -289,8 +289,10 @@ canvas {
   <div id="header">
     <h1>◆ SimAnt</h1>
     <span id="rom-name">— ROM 未読み込み —</span>
-    <!-- デスクトップ版と同じ古典パターン: label 内に隠した input をネスト -->
-    <label class="h-btn">📂 ROM<input type="file" id="rom-input" accept=".sfc,.smc,.rom,.bin"></label>
+    <!-- test-picker.html ③ パターン: button が JS で input.click() を呼ぶ。
+         label 内ネストよりこちらの方がこのページでは確実に動く -->
+    <button type="button" class="h-btn" id="rom-btn">📂 ROM</button>
+    <input type="file" id="rom-input" style="display:none">
     <button class="h-btn" id="reset-btn">↺</button>
     <span id="fps">-- FPS</span>
   </div>
@@ -392,7 +394,13 @@ window.addEventListener('unhandledrejection', (e) => {
   setSplash('<span style="color:#f85149">非同期エラー: ' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '</span>');
 });
 
-// ROM 読み込み (デスクトップ版と同じ単純な change リスナー)
+// ボタンが押されたら、隠した input を JS でクリックして picker を開く
+// (test-picker.html ③ パターン。label 内ネストでは動作しないことを確認済み)
+$('rom-btn').addEventListener('click', () => {
+  $('rom-input').click();
+});
+
+// 選択されたファイルを処理
 $('rom-input').addEventListener('change', async (e) => {
   const f = e.target.files && e.target.files[0];
   if (!f) {
