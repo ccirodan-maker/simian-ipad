@@ -68,19 +68,7 @@ html, body {
   cursor: pointer;
 }
 .h-btn:active { background: #1f6feb; }
-/* iOS PWA モードでは display:none のファイル input が動作しないことがあるため、
-   "視覚的に隠すが DOM/レイアウト上は存在" させる。
-   pointer-events: none は付けない (label の for= 経由の click 伝播を阻害する可能性) */
-#rom-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  overflow: hidden;
-  clip: rect(0,0,0,0);
-  left: 0;
-  top: 0;
-}
+/* 動的に生成する file input は JS 側で style 指定するため、ここには CSS を置かない */
 
 /* ゲーム画面エリア (中央) */
 #screen-area {
@@ -300,9 +288,8 @@ canvas {
   <div id="header">
     <h1>◆ SimAnt</h1>
     <span id="rom-name">— ROM 未読み込み —</span>
-    <label class="h-btn" for="rom-input">📂 ROM</label>
-    <!-- iOS Safari は accept 属性が厳しめで .sfc を除外することがあるため、フィルタなしにする -->
-    <input type="file" id="rom-input">
+    <!-- iOS PWA バグ対策: 静的 input ではなくクリック時に動的生成する -->
+    <button class="h-btn" id="rom-btn">📂 ROM</button>
     <button class="h-btn" id="reset-btn">↺</button>
     <span id="fps">-- FPS</span>
   </div>
@@ -395,8 +382,10 @@ function readFileAsArrayBuffer(file) {
   });
 }
 
-$('rom-input').addEventListener('change', async e => {
-  const f = e.target.files && e.target.files[0];
+// iOS PWA バグ回避: ボタンが押された瞬間に <input type="file"> を新規生成し、
+// 即座に click() を呼ぶ。change ハンドラは生成と同時に attach するので
+// ユーザージェスチャの連鎖が切れず、change イベントが確実に発火する。
+async function handleRomFile(f) {
   if (!f) {
     setSplash('ファイルが選択されませんでした。もう一度お試しください。');
     return;
@@ -416,10 +405,45 @@ $('rom-input').addEventListener('change', async e => {
     emu.start();
   } catch(err) {
     setSplash('ROM 読み込みエラー: ' + (err && err.message ? err.message : err));
-    // PWA モードでは alert() が抑制されることがあるので画面表示を頼りにする
     try { alert('ROM 読み込みエラー: ' + (err && err.message ? err.message : err)); } catch(_) {}
   }
-});
+}
+
+function openRomPicker() {
+  setSplash('ファイル選択画面を開いています...');
+
+  // 既存の動的 input が残っていたら掃除
+  const old = document.getElementById('dyn-rom-input');
+  if (old) old.parentNode.removeChild(old);
+
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.id = 'dyn-rom-input';
+  // iOS PWA で動作させるため、見えないが DOM 上は存在する
+  input.style.cssText = 'position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;';
+
+  let handled = false;
+  input.addEventListener('change', () => {
+    handled = true;
+    const f = input.files && input.files[0];
+    // input は不要になったので DOM から削除
+    if (input.parentNode) input.parentNode.removeChild(input);
+    handleRomFile(f);
+  });
+
+  document.body.appendChild(input);
+  input.click();
+
+  // 5秒後にも change が来ていなければヒントを出す (iOS 既知バグ用)
+  setTimeout(() => {
+    if (!handled) {
+      setSplash('ファイル選択が反映されないようです。<br>' +
+                '<small style="color:#888">もう一度「📂 ROM」をタップするか、ホームに戻ってアプリを起動し直してみてください。</small>');
+    }
+  }, 5000);
+}
+
+$('rom-btn').addEventListener('click', openRomPicker);
 
 // iOS PWA モード判定 (ホーム画面から起動したか) — ヒント表示用
 const isStandalone = window.navigator.standalone === true ||
