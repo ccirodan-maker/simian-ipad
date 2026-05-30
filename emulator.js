@@ -295,6 +295,16 @@ class Emulator {
   _scheduleFrame() {
     if(!this.running) return;
     this._rafId=requestAnimationFrame(now=>{
+      // 120Hz の ProMotion ディスプレイなどで rAF が 60Hz より速く発火するケースに対応。
+      // 前フレームから 14ms 未満なら何もせずに次の rAF を待つことで、エミュレータの実効
+      // フレームレートを ~60Hz にキャップする (音声が 2 倍速になるのを防ぐ)。
+      const MIN_FRAME_MS = 14; // 1000/60 = 16.67 だが、若干の余裕を持たせる
+      if (this._lastTickAt && (now - this._lastTickAt) < MIN_FRAME_MS) {
+        this._scheduleFrame();
+        return;
+      }
+      this._lastTickAt = now;
+
       try{
         this._runFrame();
       }catch(e){
