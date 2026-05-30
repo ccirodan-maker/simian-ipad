@@ -340,13 +340,14 @@ canvas {
   </div>
 </div>
 
-<script src="src/cartridge.js"></script>
-<script src="src/bus.js"></script>
-<script src="src/cpu65816.js"></script>
-<script src="src/spc700.js"></script>
-<script src="src/ppu.js"></script>
-<script src="src/disasm.js"></script>
-<script src="src/emulator.js"></script>
+<!-- ipad/ 直下に置く構成 (GitHub Pages の構造と一致させ、毎回パス調整しないで済むようにしている) -->
+<script src="cartridge.js"></script>
+<script src="bus.js"></script>
+<script src="cpu65816.js"></script>
+<script src="spc700.js"></script>
+<script src="ppu.js"></script>
+<script src="disasm.js"></script>
+<script src="emulator.js"></script>
 <script>
 'use strict';
 const emu = new Emulator();
