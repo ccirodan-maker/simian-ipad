@@ -387,11 +387,21 @@ function readFileAsArrayBuffer(file) {
 }
 
 // グローバルエラーキャプチャ — JS でエラーが起きたら画面で見えるようにする
+// ただし、以下は画面表示せず無視する:
+//   - "Script error." (別オリジン由来で詳細が隠されたもの。情報量がない)
+//   - ゲーム起動後のエラー (スプラッシュで画面を覆ってしまうため、console のみに記録)
 window.addEventListener('error', (e) => {
+  if (!e.filename && (!e.message || e.message === 'Script error.')) return;
+  if ($('splash').style.display === 'none') {
+    console.error('Runtime error:', e); return;
+  }
   const msg = 'JS エラー: ' + (e.message || '?') + ' (' + (e.filename || '').split('/').pop() + ':' + (e.lineno || '?') + ')';
   setSplash('<span style="color:#f85149">' + msg + '</span>');
 });
 window.addEventListener('unhandledrejection', (e) => {
+  if ($('splash').style.display === 'none') {
+    console.error('Unhandled rejection:', e.reason); return;
+  }
   setSplash('<span style="color:#f85149">非同期エラー: ' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '</span>');
 });
 
